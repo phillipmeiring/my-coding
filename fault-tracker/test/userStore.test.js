@@ -50,6 +50,22 @@ test('register never returns the password hash', () => {
   assert.equal(user.passwordHash, undefined);
 });
 
+test('updatePassword changes which password authenticates', () => {
+  const store = freshStore();
+  const user = store.register({ email: 'a@x.com', password: 'old-password', name: 'Alice', role: 'tenant', unit: '4B' });
+
+  assert.equal(store.updatePassword(user.id, 'new-password'), true);
+  assert.equal(store.authenticate({ email: 'a@x.com', password: 'old-password' }), null);
+  assert.ok(store.authenticate({ email: 'a@x.com', password: 'new-password' }));
+});
+
+test('updatePassword rejects short passwords and returns false for an unknown user', () => {
+  const store = freshStore();
+  const user = store.register({ email: 'a@x.com', password: 'old-password', name: 'Alice', role: 'tenant', unit: '4B' });
+  assert.throws(() => store.updatePassword(user.id, 'short'), /at least 8 characters/);
+  assert.equal(store.updatePassword(999, 'long-enough-password'), false);
+});
+
 test('authenticate succeeds with correct credentials and fails otherwise', () => {
   const store = freshStore();
   store.register({ email: 'a@x.com', password: 'correct-password', name: 'Alice', role: 'tenant', unit: '4B' });

@@ -18,4 +18,10 @@ function destroySession(token) {
   sessionsByToken.delete(token);
 }
 
-module.exports = { createSession, getUserId, destroySession };
+function destroyAllForUser(userId) {
+  for (const [token, id] of sessionsByToken) {
+    if (id === userId) sessionsByToken.delete(token);
+  }
+}
+
+module.exports = { createSession, getUserId, destroySession, destroyAllForUser };

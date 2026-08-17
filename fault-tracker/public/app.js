@@ -15,6 +15,11 @@ const registerRole = document.getElementById('registerRole');
 const unitField = document.getElementById('unitField');
 const authMessage = document.getElementById('authMessage');
 
+const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+const backToLoginLink = document.getElementById('backToLoginLink');
+const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+const resetPasswordForm = document.getElementById('resetPasswordForm');
+
 const faultForm = document.getElementById('faultForm');
 const tenantMessage = document.getElementById('tenantMessage');
 const myFaultsBody = document.getElementById('myFaultsBody');
@@ -39,9 +44,11 @@ tabLogin.addEventListener('click', () => {
   tabRegister.classList.remove('active');
   loginForm.hidden = false;
   registerForm.hidden = true;
+  forgotPasswordLink.hidden = false;
 });
 
 tabRegister.addEventListener('click', () => {
+  forgotPasswordLink.hidden = true;
   tabRegister.classList.add('active');
   tabLogin.classList.remove('active');
   registerForm.hidden = false;
@@ -50,6 +57,72 @@ tabRegister.addEventListener('click', () => {
 
 registerRole.addEventListener('change', () => {
   unitField.hidden = registerRole.value !== 'tenant';
+});
+
+function showLoginTabs() {
+  tabLogin.hidden = false;
+  tabRegister.hidden = false;
+  forgotPasswordLink.hidden = false;
+  loginForm.hidden = false;
+  registerForm.hidden = true;
+  forgotPasswordForm.hidden = true;
+  resetPasswordForm.hidden = true;
+  tabLogin.classList.add('active');
+  tabRegister.classList.remove('active');
+}
+
+forgotPasswordLink.addEventListener('click', () => {
+  tabLogin.hidden = true;
+  tabRegister.hidden = true;
+  forgotPasswordLink.hidden = true;
+  loginForm.hidden = true;
+  forgotPasswordForm.hidden = false;
+  authMessage.textContent = '';
+});
+
+backToLoginLink.addEventListener('click', () => {
+  showLoginTabs();
+  authMessage.textContent = '';
+});
+
+forgotPasswordForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(forgotPasswordForm).entries());
+  await fetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  forgotPasswordForm.reset();
+  authMessage.textContent = 'If an account exists for that email, a reset link has been sent.';
+});
+
+const resetToken = new URLSearchParams(window.location.search).get('resetToken');
+if (resetToken) {
+  tabLogin.hidden = true;
+  tabRegister.hidden = true;
+  forgotPasswordLink.hidden = true;
+  loginForm.hidden = true;
+  resetPasswordForm.hidden = false;
+}
+
+resetPasswordForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const newPassword = new FormData(resetPasswordForm).get('newPassword');
+  const res = await fetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: resetToken, newPassword }),
+  });
+  if (res.ok) {
+    window.history.replaceState({}, '', window.location.pathname);
+    resetPasswordForm.hidden = true;
+    showLoginTabs();
+    authMessage.textContent = 'Password updated. Log in with your new password.';
+  } else {
+    const { error } = await res.json();
+    authMessage.textContent = `Error: ${error}`;
+  }
 });
 
 loginForm.addEventListener('submit', async (e) => {
@@ -99,6 +172,7 @@ logoutBtn.addEventListener('click', async () => {
   await fetch('/api/auth/logout', { method: 'POST' });
   currentUser = null;
   stopPolling();
+  showLoginTabs();
   render();
 });
 
