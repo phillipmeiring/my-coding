@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fault-tracker",
+      "runtimeExecutable": "C:\\Users\\pmeiring\\AppData\\Local\\NodePortable\\node-v20.18.1-win-x64\\node.exe",
+      "runtimeArgs": ["fault-tracker/src/server.js"],
+      "port": 3000
+    }
+  ]
+}
