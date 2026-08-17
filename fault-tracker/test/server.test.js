@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { mock } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
@@ -7,6 +8,11 @@ const path = require('path');
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fault-tracker-server-'));
 process.env.USER_DATA_FILE = path.join(tmpDir, 'users.json');
 process.env.FAULT_DATA_FILE = path.join(tmpDir, 'faults.json');
+
+const mailer = require('../src/mailer');
+// Every other test in this file just needs fault creation to not actually
+// talk to the network; the real send path is covered by mailer.test.js.
+const sendFaultNotification = mock.method(mailer, 'sendFaultNotification', async () => ({ mocked: true }));
 
 const request = require('supertest');
 const app = require('../src/server');
@@ -51,6 +57,35 @@ test('a tenant can submit a fault and it appears in their own list, tied to thei
   const mine = await client.get('/api/faults/mine').expect(200);
   assert.equal(mine.body.length, 1);
   assert.equal(mine.body[0].title, 'Leaking tap');
+});
+
+test('creating a fault notifies all registered landlords by email', async () => {
+  const landlordClient = agent();
+  await registerAndLogin(landlordClient, { role: 'landlord', unit: undefined, email: 'landlord1@x.com' });
+
+  const tenantClient = agent();
+  await registerAndLogin(tenantClient, { role: 'tenant', unit: '9C', name: 'Alice' });
+
+  const callsBefore = sendFaultNotification.mock.calls.length;
+  const created = await tenantClient
+    .post('/api/faults')
+    .send({ title: 'Leak', description: 'desc' })
+    .expect(201);
+
+  assert.equal(sendFaultNotification.mock.calls.length, callsBefore + 1);
+  const [emails, fault] = sendFaultNotification.mock.calls.at(-1).arguments;
+  assert.ok(emails.includes('landlord1@x.com'));
+  assert.equal(fault.id, created.body.id);
+});
+
+test('fault creation still succeeds even if sending the notification email fails', async () => {
+  sendFaultNotification.mock.mockImplementationOnce(async () => {
+    throw new Error('SMTP is down');
+  });
+
+  const client = agent();
+  await registerAndLogin(client, { role: 'tenant' });
+  await client.post('/api/faults').send({ title: 'Leak', description: 'desc' }).expect(201);
 });
 
 test('a tenant cannot access the landlord dashboard', async () => {
