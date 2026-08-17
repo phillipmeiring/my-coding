@@ -9,6 +9,10 @@
   },
   "license": "MIT",
   "dependencies": {
+    "cookie-parser": "^1.4.6",
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
   }
 }

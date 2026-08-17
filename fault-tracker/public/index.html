@@ -9,26 +9,64 @@
 <body>
   <header>
     <h1>Fault Tracker</h1>
-    <nav>
-      <button id="tabTenant" class="tab active">Tenant</button>
-      <button id="tabLandlord" class="tab">
-        Landlord <span id="unreadBadge" class="badge" hidden>0</span>
-      </button>
+    <nav id="userNav" hidden>
+      <span id="userLabel"></span>
+      <span id="unreadBadge" class="badge" hidden>0</span>
+      <button id="logoutBtn" class="tab">Log out</button>
     </nav>
   </header>
 
   <main>
-    <section id="tenantView">
+    <section id="authView">
+      <div class="authTabs">
+        <button id="tabLogin" class="tab active">Log in</button>
+        <button id="tabRegister" class="tab">Register</button>
+      </div>
+
+      <form id="loginForm">
+        <label>
+          Email
+          <input type="email" name="email" required />
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" required />
+        </label>
+        <button type="submit">Log in</button>
+      </form>
+
+      <form id="registerForm" hidden>
+        <label>
+          Name
+          <input type="text" name="name" required />
+        </label>
+        <label>
+          Email
+          <input type="email" name="email" required />
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" minlength="8" required />
+        </label>
+        <label>
+          I am a
+          <select name="role" id="registerRole">
+            <option value="tenant">Tenant</option>
+            <option value="landlord">Landlord</option>
+          </select>
+        </label>
+        <label id="unitField">
+          Unit
+          <input type="text" name="unit" placeholder="e.g. Apt 4B" />
+        </label>
+        <button type="submit">Create account</button>
+      </form>
+      <p id="authMessage" role="status"></p>
+    </section>
+
+    <section id="tenantView" hidden>
       <h2>Log a fault</h2>
       <form id="faultForm">
-        <label>
-          Your name
-          <input type="text" name="tenantName" required />
-        </label>
-        <label>
-          Unit
-          <input type="text" name="unit" placeholder="e.g. Apt 4B" required />
-        </label>
         <label>
           Title
           <input type="text" name="title" placeholder="e.g. Leaking kitchen tap" required />
@@ -40,6 +78,20 @@
         <button type="submit">Submit fault</button>
       </form>
       <p id="tenantMessage" role="status"></p>
+
+      <h2>My reported faults</h2>
+      <table id="myFaultsTable">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Reported</th>
+          </tr>
+        </thead>
+        <tbody id="myFaultsBody"></tbody>
+      </table>
+      <p id="myFaultsEmpty" hidden>You haven't reported any faults yet.</p>
     </section>
 
     <section id="landlordView" hidden>

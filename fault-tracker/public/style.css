@@ -24,7 +24,14 @@ h1 {
 
 nav {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.authTabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .tab {
