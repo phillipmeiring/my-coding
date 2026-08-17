@@ -9,6 +9,7 @@ A small property-management app: tenants log faults, landlords see them show up 
 - Password reset: "Forgot password?" on the login screen requests a reset link.
 - Email notifications: every landlord account gets emailed when a new fault is reported, in addition to the in-app alert badge.
 - Landlord view: list of all faults with a live unread-count badge, and buttons to move each fault through `new -> acknowledged -> resolved`.
+- Photo attachments: tenants can attach up to 3 photos (JPEG/PNG/GIF/WEBP, 5MB max each) when reporting a fault. Photos are only visible to the reporting tenant and to landlords.
 - Data is persisted to local JSON files (`data/users.json`, `data/faults.json`) — no external database needed.
 
 ## Auth notes
@@ -39,9 +40,11 @@ npm test
 
 ## API
 
-| Method | Path                      | Description                       |
-| ------ | ------------------------- | ---------------------------------- |
-| GET    | `/api/faults`              | List all faults, newest first      |
-| POST   | `/api/faults`               | Create a fault (`tenantName`, `unit`, `title`, `description`) |
-| PATCH  | `/api/faults/:id/status`   | Update a fault's status            |
-| GET    | `/api/faults/unread-count` | Count of faults still in `new`     |
+| Method | Path                              | Description                       |
+| ------ | ---------------------------------- | ---------------------------------- |
+| GET    | `/api/faults`                       | List all faults, newest first (landlord only) |
+| GET    | `/api/faults/mine`                  | List the logged-in tenant's own faults |
+| POST   | `/api/faults`                       | Create a fault (`title`, `description`, up to 3 `photos` files, multipart) |
+| PATCH  | `/api/faults/:id/status`           | Update a fault's status (landlord only) |
+| GET    | `/api/faults/unread-count`         | Count of faults still in `new` (landlord only) |
+| GET    | `/api/faults/:id/photos/:filename` | Fetch an attached photo (owning tenant or any landlord only) |

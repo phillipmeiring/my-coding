@@ -97,6 +97,15 @@ button[type='submit'] {
   cursor: pointer;
 }
 
+.photoThumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 1px solid #ddd;
+}
+
 .linklike {
   background: none;
   border: none;

@@ -93,6 +93,10 @@
           Description
           <textarea name="description" rows="3"></textarea>
         </label>
+        <label>
+          Photos (optional, up to 3)
+          <input type="file" name="photos" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
+        </label>
         <button type="submit">Submit fault</button>
       </form>
       <p id="tenantMessage" role="status"></p>
@@ -103,6 +107,7 @@
           <tr>
             <th>Title</th>
             <th>Description</th>
+            <th>Photos</th>
             <th>Status</th>
             <th>Reported</th>
           </tr>
@@ -121,6 +126,7 @@
             <th>Tenant</th>
             <th>Title</th>
             <th>Description</th>
+            <th>Photos</th>
             <th>Status</th>
             <th>Reported</th>
             <th></th>

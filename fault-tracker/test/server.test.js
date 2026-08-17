@@ -8,6 +8,7 @@ const path = require('path');
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fault-tracker-server-'));
 process.env.USER_DATA_FILE = path.join(tmpDir, 'users.json');
 process.env.FAULT_DATA_FILE = path.join(tmpDir, 'faults.json');
+process.env.UPLOADS_DIR = path.join(tmpDir, 'uploads');
 
 const mailer = require('../src/mailer');
 // Every other test in this file just needs fault creation to not actually
@@ -57,6 +58,52 @@ test('a tenant can submit a fault and it appears in their own list, tied to thei
   const mine = await client.get('/api/faults/mine').expect(200);
   assert.equal(mine.body.length, 1);
   assert.equal(mine.body[0].title, 'Leaking tap');
+});
+
+test('a tenant can attach photos, and only the owner or a landlord can view them', async () => {
+  const tenantClient = agent();
+  await registerAndLogin(tenantClient, { role: 'tenant', unit: '5D', name: 'Bob' });
+
+  const landlordClient = agent();
+  await registerAndLogin(landlordClient, { role: 'landlord', unit: undefined, email: 'landlord2@x.com' });
+
+  const otherTenantClient = agent();
+  await registerAndLogin(otherTenantClient, { role: 'tenant' });
+
+  const created = await tenantClient
+    .post('/api/faults')
+    .field('title', 'Broken window')
+    .field('description', 'Cracked glass')
+    .attach('photos', Buffer.from('fake image bytes'), { filename: 'crack.png', contentType: 'image/png' })
+    .expect(201);
+
+  assert.equal(created.body.photos.length, 1);
+  const filename = created.body.photos[0];
+
+  await tenantClient.get(`/api/faults/${created.body.id}/photos/${filename}`).expect(200);
+  await landlordClient.get(`/api/faults/${created.body.id}/photos/${filename}`).expect(200);
+  await otherTenantClient.get(`/api/faults/${created.body.id}/photos/${filename}`).expect(403);
+  await tenantClient.get(`/api/faults/${created.body.id}/photos/not-a-real-file.png`).expect(404);
+});
+
+test('rejects a non-image file upload', async () => {
+  const client = agent();
+  await registerAndLogin(client, { role: 'tenant' });
+  await client
+    .post('/api/faults')
+    .field('title', 'x')
+    .attach('photos', Buffer.from('not an image'), { filename: 'notes.txt', contentType: 'text/plain' })
+    .expect(400);
+});
+
+test('rejects more than the max number of photos', async () => {
+  const client = agent();
+  await registerAndLogin(client, { role: 'tenant' });
+  let req = client.post('/api/faults').field('title', 'x');
+  for (let i = 0; i < 4; i++) {
+    req = req.attach('photos', Buffer.from('fake'), { filename: `p${i}.png`, contentType: 'image/png' });
+  }
+  await req.expect(400);
 });
 
 test('creating a fault notifies all registered landlords by email', async () => {

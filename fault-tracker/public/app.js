@@ -217,14 +217,24 @@ function stopPolling() {
 
 // --- Tenant view ---
 
+function renderPhotosCell(fault) {
+  if (!fault.photos || fault.photos.length === 0) return '';
+  return fault.photos
+    .map((filename) => {
+      const url = `/api/faults/${fault.id}/photos/${encodeURIComponent(filename)}`;
+      return `<a href="${url}" target="_blank" rel="noopener"><img class="photoThumb" src="${url}" alt="fault photo" /></a>`;
+    })
+    .join('');
+}
+
 faultForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const body = Object.fromEntries(new FormData(faultForm).entries());
+  // Sent as FormData (not JSON) so photo files ride along as multipart.
+  const formData = new FormData(faultForm);
 
   const res = await fetch('/api/faults', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: formData,
   });
 
   if (res.ok) {
@@ -250,6 +260,7 @@ async function loadMyFaults() {
     row.innerHTML = `
       <td>${escapeHtml(fault.title)}</td>
       <td>${escapeHtml(fault.description)}</td>
+      <td>${renderPhotosCell(fault)}</td>
       <td class="status-${fault.status}">${fault.status}</td>
       <td>${new Date(fault.createdAt).toLocaleString()}</td>
     `;
@@ -274,6 +285,7 @@ async function loadFaults() {
       <td>${escapeHtml(fault.tenantName)}</td>
       <td>${escapeHtml(fault.title)}</td>
       <td>${escapeHtml(fault.description)}</td>
+      <td>${renderPhotosCell(fault)}</td>
       <td class="status-${fault.status}">${fault.status}</td>
       <td>${new Date(fault.createdAt).toLocaleString()}</td>
       <td></td>

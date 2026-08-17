@@ -6,6 +6,7 @@ const userStore = require('./userStore');
 const sessionStore = require('./sessionStore');
 const resetStore = require('./resetStore');
 const mailer = require('./mailer');
+const photoStorage = require('./photoStorage');
 
 const SESSION_COOKIE = 'session_token';
 
@@ -100,28 +101,49 @@ app.get('/api/faults/mine', requireRole('tenant'), (req, res) => {
   res.json(faultStore.listFaultsForTenant(req.user.id));
 });
 
-app.post('/api/faults', requireRole('tenant'), async (req, res) => {
-  let fault;
-  try {
-    fault = faultStore.createFault({
-      tenantId: req.user.id,
-      tenantName: req.user.name,
-      unit: req.user.unit,
-      title: (req.body || {}).title,
-      description: (req.body || {}).description,
-    });
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
-  }
+app.post(
+  '/api/faults',
+  requireRole('tenant'),
+  photoStorage.upload.array('photos', photoStorage.MAX_FILES),
+  async (req, res) => {
+    let fault;
+    try {
+      const photos = photoStorage.savePhotos(req.files);
+      fault = faultStore.createFault({
+        tenantId: req.user.id,
+        tenantName: req.user.name,
+        unit: req.user.unit,
+        title: (req.body || {}).title,
+        description: (req.body || {}).description,
+        photos,
+      });
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
 
-  try {
-    await mailer.sendFaultNotification(userStore.listLandlordEmails(), fault);
-  } catch (err) {
-    // A notification failure shouldn't fail the tenant's fault report.
-    console.error('[email] failed to send fault notification:', err.message);
-  }
+    try {
+      await mailer.sendFaultNotification(userStore.listLandlordEmails(), fault);
+    } catch (err) {
+      // A notification failure shouldn't fail the tenant's fault report.
+      console.error('[email] failed to send fault notification:', err.message);
+    }
 
-  res.status(201).json(fault);
+    res.status(201).json(fault);
+  }
+);
+
+app.get('/api/faults/:id/photos/:filename', (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'not logged in' });
+
+  const fault = faultStore.findById(req.params.id);
+  if (!fault) return res.status(404).json({ error: 'fault not found' });
+
+  const isOwner = req.user.role === 'tenant' && req.user.id === fault.tenantId;
+  const isLandlord = req.user.role === 'landlord';
+  if (!isOwner && !isLandlord) return res.status(403).json({ error: 'not allowed to view this photo' });
+
+  if (!fault.photos.includes(req.params.filename)) return res.status(404).json({ error: 'photo not found' });
+  res.sendFile(photoStorage.photoPath(req.params.filename));
 });
 
 app.patch('/api/faults/:id/status', requireRole('landlord'), (req, res) => {
@@ -136,6 +158,13 @@ app.patch('/api/faults/:id/status', requireRole('landlord'), (req, res) => {
 
 app.get('/api/faults/unread-count', requireRole('landlord'), (req, res) => {
   res.json({ count: faultStore.getUnreadCount() });
+});
+
+// Catches multer errors (bad file type, too many files, file too large),
+// which arrive here via next(err) rather than reaching the route handler.
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  res.status(400).json({ error: err.message });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -25,6 +25,28 @@ test('createFault stores a new fault with status "new"', () => {
   assert.equal(store.listFaults().length, 1);
 });
 
+test('createFault defaults photos to an empty array and stores them when provided', () => {
+  const store = freshStore();
+  const withoutPhotos = store.createFault({ tenantId: 1, tenantName: 'Alice', unit: '4B', title: 'Leak' });
+  assert.deepEqual(withoutPhotos.photos, []);
+
+  const withPhotos = store.createFault({
+    tenantId: 1,
+    tenantName: 'Alice',
+    unit: '4B',
+    title: 'Leak',
+    photos: ['a.jpg', 'b.png'],
+  });
+  assert.deepEqual(withPhotos.photos, ['a.jpg', 'b.png']);
+});
+
+test('findById returns the matching fault or null', () => {
+  const store = freshStore();
+  const fault = store.createFault({ tenantId: 1, tenantName: 'Alice', unit: '4B', title: 'Leak' });
+  assert.equal(store.findById(fault.id).title, 'Leak');
+  assert.equal(store.findById(999), null);
+});
+
 test('listFaults returns newest first', () => {
   const store = freshStore();
   store.createFault({ tenantId: 1, tenantName: 'Alice', unit: '4B', title: 'First' });
