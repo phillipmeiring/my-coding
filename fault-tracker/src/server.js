@@ -5,6 +5,7 @@ const faultStore = require('./faultStore');
 const userStore = require('./userStore');
 const sessionStore = require('./sessionStore');
 const resetStore = require('./resetStore');
+const mailer = require('./mailer');
 
 const SESSION_COOKIE = 'session_token';
 
@@ -99,19 +100,28 @@ app.get('/api/faults/mine', requireRole('tenant'), (req, res) => {
   res.json(faultStore.listFaultsForTenant(req.user.id));
 });
 
-app.post('/api/faults', requireRole('tenant'), (req, res) => {
+app.post('/api/faults', requireRole('tenant'), async (req, res) => {
+  let fault;
   try {
-    const fault = faultStore.createFault({
+    fault = faultStore.createFault({
       tenantId: req.user.id,
       tenantName: req.user.name,
       unit: req.user.unit,
       title: (req.body || {}).title,
       description: (req.body || {}).description,
     });
-    res.status(201).json(fault);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
+
+  try {
+    await mailer.sendFaultNotification(userStore.listLandlordEmails(), fault);
+  } catch (err) {
+    // A notification failure shouldn't fail the tenant's fault report.
+    console.error('[email] failed to send fault notification:', err.message);
+  }
+
+  res.status(201).json(fault);
 });
 
 app.patch('/api/faults/:id/status', requireRole('landlord'), (req, res) => {

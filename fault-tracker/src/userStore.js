@@ -38,6 +38,12 @@ function findById(id) {
   return readAll().find((u) => u.id === Number(id)) || null;
 }
 
+function listLandlordEmails() {
+  return readAll()
+    .filter((u) => u.role === 'landlord')
+    .map((u) => u.email);
+}
+
 function register({ email, password, name, role, unit }) {
   if (!email || !password || !name || !role) {
     throw new Error('email, password, name, and role are required');
@@ -95,4 +101,12 @@ function toPublicUser(user) {
   return publicUser;
 }
 
-module.exports = { register, authenticate, findById, findByEmail, updatePassword, VALID_ROLES };
+module.exports = {
+  register,
+  authenticate,
+  findById,
+  findByEmail,
+  updatePassword,
+  listLandlordEmails,
+  VALID_ROLES,
+};

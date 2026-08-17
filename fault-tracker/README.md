@@ -7,6 +7,7 @@ A small property-management app: tenants log faults, landlords see them show up 
 - Accounts: tenants and landlords register and log in; each fault is tied to the tenant account that reported it (name and unit come from the account, not free-text input).
 - Tenant view: submit a fault (title, description) and see the status of faults you've reported.
 - Password reset: "Forgot password?" on the login screen requests a reset link.
+- Email notifications: every landlord account gets emailed when a new fault is reported, in addition to the in-app alert badge.
 - Landlord view: list of all faults with a live unread-count badge, and buttons to move each fault through `new -> acknowledged -> resolved`.
 - Data is persisted to local JSON files (`data/users.json`, `data/faults.json`) — no external database needed.
 
@@ -18,6 +19,7 @@ This is demo-grade auth, scoped to match the rest of the app:
 - Sessions are an in-memory token map, set via an `httpOnly` cookie. They reset on server restart; there's no "remember me" or password reset flow.
 - Anyone can self-register as either a tenant or a landlord — there's no invite/approval step, which would matter for a real deployment but is out of scope here.
 - No email service is configured, so "sending" a password reset link just logs it to the server console instead. Resetting a password logs the account out everywhere (all sessions are invalidated).
+- Fault-notification emails go through [Ethereal](https://ethereal.email), nodemailer's fake-SMTP testing service — messages aren't delivered to a real inbox, but a preview link for each one is logged to the server console (``[email] fault notification sent, preview: ...``). A notification failure never blocks a tenant's fault report.
 
 ## Getting started
 
