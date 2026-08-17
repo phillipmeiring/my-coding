@@ -20,13 +20,18 @@ function listFaults() {
   return readAll().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
-function createFault({ tenantName, unit, title, description }) {
-  if (!tenantName || !unit || !title) {
-    throw new Error('tenantName, unit, and title are required');
+function listFaultsForTenant(tenantId) {
+  return listFaults().filter((f) => f.tenantId === Number(tenantId));
+}
+
+function createFault({ tenantId, tenantName, unit, title, description }) {
+  if (!tenantId || !tenantName || !unit || !title) {
+    throw new Error('tenantId, tenantName, unit, and title are required');
   }
   const faults = readAll();
   const fault = {
     id: faults.length ? Math.max(...faults.map((f) => f.id)) + 1 : 1,
+    tenantId,
     tenantName,
     unit,
     title,
@@ -55,4 +60,11 @@ function getUnreadCount() {
   return readAll().filter((f) => f.status === 'new').length;
 }
 
-module.exports = { listFaults, createFault, updateStatus, getUnreadCount, VALID_STATUSES };
+module.exports = {
+  listFaults,
+  listFaultsForTenant,
+  createFault,
+  updateStatus,
+  getUnreadCount,
+  VALID_STATUSES,
+};

@@ -1,35 +1,151 @@
-const tabTenant = document.getElementById('tabTenant');
-const tabLandlord = document.getElementById('tabLandlord');
+const userNav = document.getElementById('userNav');
+const userLabel = document.getElementById('userLabel');
+const unreadBadge = document.getElementById('unreadBadge');
+const logoutBtn = document.getElementById('logoutBtn');
+
+const authView = document.getElementById('authView');
 const tenantView = document.getElementById('tenantView');
 const landlordView = document.getElementById('landlordView');
-const unreadBadge = document.getElementById('unreadBadge');
+
+const tabLogin = document.getElementById('tabLogin');
+const tabRegister = document.getElementById('tabRegister');
+const loginForm = document.getElementById('loginForm');
+const registerForm = document.getElementById('registerForm');
+const registerRole = document.getElementById('registerRole');
+const unitField = document.getElementById('unitField');
+const authMessage = document.getElementById('authMessage');
+
 const faultForm = document.getElementById('faultForm');
 const tenantMessage = document.getElementById('tenantMessage');
+const myFaultsBody = document.getElementById('myFaultsBody');
+const myFaultsEmpty = document.getElementById('myFaultsEmpty');
+
 const faultsBody = document.getElementById('faultsBody');
 const landlordEmpty = document.getElementById('landlordEmpty');
 
-function showTenant() {
-  tabTenant.classList.add('active');
-  tabLandlord.classList.remove('active');
-  tenantView.hidden = false;
-  landlordView.hidden = true;
+let currentUser = null;
+let pollHandle = null;
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
 }
 
-function showLandlord() {
-  tabLandlord.classList.add('active');
-  tabTenant.classList.remove('active');
-  landlordView.hidden = false;
-  tenantView.hidden = true;
-  loadFaults();
+// --- Auth screen ---
+
+tabLogin.addEventListener('click', () => {
+  tabLogin.classList.add('active');
+  tabRegister.classList.remove('active');
+  loginForm.hidden = false;
+  registerForm.hidden = true;
+});
+
+tabRegister.addEventListener('click', () => {
+  tabRegister.classList.add('active');
+  tabLogin.classList.remove('active');
+  registerForm.hidden = false;
+  loginForm.hidden = true;
+});
+
+registerRole.addEventListener('change', () => {
+  unitField.hidden = registerRole.value !== 'tenant';
+});
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(loginForm).entries());
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.ok) {
+    authMessage.textContent = '';
+    loginForm.reset();
+    await refreshCurrentUser();
+  } else {
+    const { error } = await res.json();
+    authMessage.textContent = `Error: ${error}`;
+  }
+});
+
+registerForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(registerForm).entries());
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.ok) {
+    const loginRes = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: body.email, password: body.password }),
+    });
+    if (loginRes.ok) {
+      authMessage.textContent = '';
+      registerForm.reset();
+      await refreshCurrentUser();
+      return;
+    }
+  }
+  const { error } = await res.json();
+  authMessage.textContent = `Error: ${error}`;
+});
+
+logoutBtn.addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  currentUser = null;
+  stopPolling();
+  render();
+});
+
+// --- Rendering ---
+
+function render() {
+  userNav.hidden = !currentUser;
+  authView.hidden = !!currentUser;
+  tenantView.hidden = !(currentUser && currentUser.role === 'tenant');
+  landlordView.hidden = !(currentUser && currentUser.role === 'landlord');
+  unreadBadge.hidden = true;
+
+  if (currentUser) {
+    userLabel.textContent = `${currentUser.name} (${currentUser.role})`;
+    if (currentUser.role === 'tenant') {
+      loadMyFaults();
+    } else {
+      loadFaults();
+      refreshUnreadCount();
+    }
+    startPolling();
+  }
 }
 
-tabTenant.addEventListener('click', showTenant);
-tabLandlord.addEventListener('click', showLandlord);
+async function refreshCurrentUser() {
+  const res = await fetch('/api/auth/me');
+  currentUser = await res.json();
+  render();
+}
+
+function startPolling() {
+  stopPolling();
+  if (currentUser && currentUser.role === 'landlord') {
+    pollHandle = setInterval(refreshUnreadCount, 5000);
+  }
+}
+
+function stopPolling() {
+  if (pollHandle) clearInterval(pollHandle);
+  pollHandle = null;
+}
+
+// --- Tenant view ---
 
 faultForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const formData = new FormData(faultForm);
-  const body = Object.fromEntries(formData.entries());
+  const body = Object.fromEntries(new FormData(faultForm).entries());
 
   const res = await fetch('/api/faults', {
     method: 'POST',
@@ -40,15 +156,38 @@ faultForm.addEventListener('submit', async (e) => {
   if (res.ok) {
     faultForm.reset();
     tenantMessage.textContent = 'Fault reported. The landlord has been alerted.';
-    refreshUnreadCount();
+    loadMyFaults();
   } else {
     const { error } = await res.json();
     tenantMessage.textContent = `Error: ${error}`;
   }
 });
 
+async function loadMyFaults() {
+  const res = await fetch('/api/faults/mine');
+  if (!res.ok) return;
+  const faults = await res.json();
+
+  myFaultsBody.innerHTML = '';
+  myFaultsEmpty.hidden = faults.length > 0;
+
+  for (const fault of faults) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${escapeHtml(fault.title)}</td>
+      <td>${escapeHtml(fault.description)}</td>
+      <td class="status-${fault.status}">${fault.status}</td>
+      <td>${new Date(fault.createdAt).toLocaleString()}</td>
+    `;
+    myFaultsBody.appendChild(row);
+  }
+}
+
+// --- Landlord view ---
+
 async function loadFaults() {
   const res = await fetch('/api/faults');
+  if (!res.ok) return;
   const faults = await res.json();
 
   faultsBody.innerHTML = '';
@@ -89,16 +228,10 @@ async function loadFaults() {
 
 async function refreshUnreadCount() {
   const res = await fetch('/api/faults/unread-count');
+  if (!res.ok) return;
   const { count } = await res.json();
   unreadBadge.hidden = count === 0;
   unreadBadge.textContent = count;
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-refreshUnreadCount();
-setInterval(refreshUnreadCount, 5000);
+refreshCurrentUser();
