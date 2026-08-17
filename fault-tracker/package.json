@@ -1,0 +1,14 @@
+{
+  "name": "fault-tracker",
+  "version": "1.0.0",
+  "description": "Property management app for tenants to log faults and alert landlords",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
