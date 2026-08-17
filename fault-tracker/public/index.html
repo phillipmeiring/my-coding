@@ -34,6 +34,24 @@
         </label>
         <button type="submit">Log in</button>
       </form>
+      <button id="forgotPasswordLink" class="linklike">Forgot password?</button>
+
+      <form id="forgotPasswordForm" hidden>
+        <label>
+          Email
+          <input type="email" name="email" required />
+        </label>
+        <button type="submit">Send reset link</button>
+        <button id="backToLoginLink" type="button" class="linklike">Back to log in</button>
+      </form>
+
+      <form id="resetPasswordForm" hidden>
+        <label>
+          New password
+          <input type="password" name="newPassword" minlength="8" required />
+        </label>
+        <button type="submit">Set new password</button>
+      </form>
 
       <form id="registerForm" hidden>
         <label>

@@ -70,6 +70,18 @@ function register({ email, password, name, role, unit }) {
   return toPublicUser(user);
 }
 
+function updatePassword(userId, newPassword) {
+  if (!newPassword || newPassword.length < 8) {
+    throw new Error('password must be at least 8 characters');
+  }
+  const users = readAll();
+  const user = users.find((u) => u.id === Number(userId));
+  if (!user) return false;
+  user.passwordHash = hashPassword(newPassword);
+  writeAll(users);
+  return true;
+}
+
 function authenticate({ email, password }) {
   const user = findByEmail(email);
   if (!user || !verifyPassword(password, user.passwordHash)) {
@@ -83,4 +95,4 @@ function toPublicUser(user) {
   return publicUser;
 }
 
-module.exports = { register, authenticate, findById, VALID_ROLES };
+module.exports = { register, authenticate, findById, findByEmail, updatePassword, VALID_ROLES };

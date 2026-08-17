@@ -4,6 +4,7 @@ const path = require('path');
 const faultStore = require('./faultStore');
 const userStore = require('./userStore');
 const sessionStore = require('./sessionStore');
+const resetStore = require('./resetStore');
 
 const SESSION_COOKIE = 'session_token';
 
@@ -58,6 +59,34 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', (req, res) => {
   res.json(req.user || null);
+});
+
+app.post('/api/auth/forgot-password', (req, res) => {
+  const user = userStore.findByEmail((req.body || {}).email || '');
+  if (user) {
+    const token = resetStore.createToken(user.id);
+    const resetLink = `${req.protocol}://${req.get('host')}/?resetToken=${token}`;
+    // No email service is configured for this demo app, so the "email" is
+    // simulated by logging the link the user would have received.
+    console.log(`[password reset] ${user.email}: ${resetLink}`);
+  }
+  // Always respond the same way whether or not the email is registered, so
+  // this endpoint can't be used to check which emails have accounts.
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const { token, newPassword } = req.body || {};
+  const userId = resetStore.consumeToken(token);
+  if (!userId) return res.status(400).json({ error: 'invalid or expired reset link' });
+
+  try {
+    userStore.updatePassword(userId, newPassword);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  sessionStore.destroyAllForUser(userId);
+  res.json({ ok: true });
 });
 
 // --- Faults ---

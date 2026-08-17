@@ -10,6 +10,8 @@ process.env.FAULT_DATA_FILE = path.join(tmpDir, 'faults.json');
 
 const request = require('supertest');
 const app = require('../src/server');
+const userStore = require('../src/userStore');
+const resetStore = require('../src/resetStore');
 
 function agent() {
   return request.agent(app);
@@ -63,6 +65,45 @@ test('a landlord can see faults but cannot submit one', async () => {
   await client.post('/api/faults').send({ title: 'x' }).expect(403);
   const res = await client.get('/api/faults').expect(200);
   assert.ok(Array.isArray(res.body));
+});
+
+test('forgot-password responds the same way for a registered and an unregistered email', async () => {
+  const client = agent();
+  const user = await registerAndLogin(client, { role: 'tenant' });
+
+  const known = await request(app).post('/api/auth/forgot-password').send({ email: user.email });
+  const unknown = await request(app).post('/api/auth/forgot-password').send({ email: 'nobody@x.com' });
+
+  assert.equal(known.status, unknown.status);
+  assert.deepEqual(known.body, unknown.body);
+});
+
+test('reset-password with a valid token changes the password and logs out existing sessions', async () => {
+  const client = agent();
+  const user = await registerAndLogin(client, { role: 'tenant' });
+  await client.get('/api/faults/mine').expect(200); // session is valid before reset
+
+  const stored = userStore.findByEmail(user.email);
+  const token = resetStore.createToken(stored.id);
+
+  await request(app).post('/api/auth/reset-password').send({ token, newPassword: 'brand-new-password' }).expect(200);
+
+  // old session should now be logged out
+  await client.get('/api/faults/mine').expect(401);
+
+  // old password no longer works, new password does
+  await request(app).post('/api/auth/login').send({ email: user.email, password: user.password }).expect(401);
+  await request(app)
+    .post('/api/auth/login')
+    .send({ email: user.email, password: 'brand-new-password' })
+    .expect(200);
+});
+
+test('reset-password rejects an invalid or already-used token', async () => {
+  await request(app)
+    .post('/api/auth/reset-password')
+    .send({ token: 'bogus-token', newPassword: 'brand-new-password' })
+    .expect(400);
 });
 
 test('logout clears the session', async () => {
