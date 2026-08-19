@@ -20,7 +20,7 @@ This is demo-grade auth, scoped to match the rest of the app:
 - Sessions are an in-memory token map, set via an `httpOnly` cookie. They reset on server restart; there's no "remember me" or password reset flow.
 - Anyone can self-register as either a tenant or a landlord — there's no invite/approval step, which would matter for a real deployment but is out of scope here.
 - No email service is configured, so "sending" a password reset link just logs it to the server console instead. Resetting a password logs the account out everywhere (all sessions are invalidated).
-- Fault-notification emails go through [Ethereal](https://ethereal.email), nodemailer's fake-SMTP testing service — messages aren't delivered to a real inbox, but a preview link for each one is logged to the server console (``[email] fault notification sent, preview: ...``). A notification failure never blocks a tenant's fault report.
+- Fault-notification emails go through real SMTP if configured (see **Email delivery** below), otherwise they fall back to [Ethereal](https://ethereal.email), nodemailer's fake-SMTP testing service — messages aren't delivered to a real inbox, but a preview link for each one is logged to the server console (``[email] fault notification sent, preview: ...``). A notification failure never blocks a tenant's fault report.
 
 ## Getting started
 
@@ -31,6 +31,27 @@ npm start
 ```
 
 Then open http://localhost:3000.
+
+## Email delivery
+
+By default, fault-notification emails go through Ethereal (see **Auth notes** above) — no setup needed, but nothing reaches a real inbox.
+
+To send real email, copy `.env.example` to `.env` and fill in your SMTP provider's details:
+
+```bash
+cp .env.example .env
+```
+
+```
+SMTP_HOST=smtp.your-provider.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-username
+SMTP_PASS=your-password-or-api-key
+SMTP_FROM="Fault Tracker <no-reply@yourdomain.com>"
+```
+
+This works with most providers (Gmail, SendGrid, Mailgun, your own mail server, etc.) since it's just standard SMTP — check your provider's docs for the exact host/port/credentials. `.env` is git-ignored, so credentials never get committed. As soon as `SMTP_HOST` is set, the app uses it instead of Ethereal automatically; unset it (or delete `.env`) to go back to the Ethereal fallback.
 
 ## Running tests
 

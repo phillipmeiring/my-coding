@@ -1,23 +1,49 @@
 const nodemailer = require('nodemailer');
 
-// Ethereal is nodemailer's fake-SMTP testing service: it accepts the message
-// and gives back a preview URL, but never delivers to a real inbox. There's
-// no real email provider configured for this demo app, so this stands in
-// for one — see README.md.
+// If SMTP_HOST is set (see .env.example), we send through that real
+// provider. Otherwise we fall back to Ethereal, nodemailer's fake-SMTP
+// testing service: it accepts the message and gives back a preview URL, but
+// never delivers to a real inbox. That fallback is what makes `npm start`
+// and the test suite work out of the box with zero configuration.
 let transporterPromise = null;
+
+function hasRealSmtpConfig() {
+  return Boolean(process.env.SMTP_HOST);
+}
+
+// Pure and side-effect free (just reads env vars) so it can be unit tested
+// without actually connecting to anything.
+function realTransportConfig() {
+  return {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+  };
+}
+
+function fromAddress() {
+  return process.env.SMTP_FROM || '"Fault Tracker" <no-reply@fault-tracker.example>';
+}
 
 function getTransporter() {
   if (!transporterPromise) {
-    transporterPromise = nodemailer
-      .createTestAccount()
-      .then((testAccount) =>
-        nodemailer.createTransport({
-          host: testAccount.smtp.host,
-          port: testAccount.smtp.port,
-          secure: testAccount.smtp.secure,
-          auth: { user: testAccount.user, pass: testAccount.pass },
-        })
-      )
+    transporterPromise = Promise.resolve()
+      .then(() => {
+        if (hasRealSmtpConfig()) {
+          return nodemailer.createTransport(realTransportConfig());
+        }
+        return nodemailer
+          .createTestAccount()
+          .then((testAccount) =>
+            nodemailer.createTransport({
+              host: testAccount.smtp.host,
+              port: testAccount.smtp.port,
+              secure: testAccount.smtp.secure,
+              auth: { user: testAccount.user, pass: testAccount.pass },
+            })
+          );
+      })
       .catch((err) => {
         transporterPromise = null; // allow retrying on the next call
         throw err;
@@ -31,7 +57,7 @@ async function sendFaultNotification(landlordEmails, fault) {
 
   const transporter = await getTransporter();
   const info = await transporter.sendMail({
-    from: '"Fault Tracker" <no-reply@fault-tracker.example>',
+    from: fromAddress(),
     to: landlordEmails.join(', '),
     subject: `New fault reported: ${fault.title}`,
     text: [
@@ -49,8 +75,13 @@ async function sendFaultNotification(landlordEmails, fault) {
       .join('\n'),
   });
 
-  console.log(`[email] fault notification sent, preview: ${nodemailer.getTestMessageUrl(info)}`);
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    console.log(`[email] fault notification sent, preview: ${previewUrl}`);
+  } else {
+    console.log(`[email] fault notification sent to ${landlordEmails.join(', ')}`);
+  }
   return info;
 }
 
-module.exports = { sendFaultNotification, getTransporter };
+module.exports = { sendFaultNotification, getTransporter, hasRealSmtpConfig, realTransportConfig };

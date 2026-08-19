@@ -1,3 +1,7 @@
+// quiet: true suppresses dotenv's own startup log line (including an
+// unrelated "tip" it prints by default) -- we don't want that in server logs.
+require('dotenv').config({ quiet: true });
+
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
