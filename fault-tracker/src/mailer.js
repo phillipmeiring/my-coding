@@ -40,8 +40,13 @@ async function sendFaultNotification(landlordEmails, fault) {
       fault.title,
       fault.description,
       '',
+      fault.photos && fault.photos.length > 0
+        ? `${fault.photos.length} photo(s) attached — view them in the landlord dashboard.`
+        : null,
       `Reported at ${fault.createdAt}`,
-    ].join('\n'),
+    ]
+      .filter((line) => line !== null)
+      .join('\n'),
   });
 
   console.log(`[email] fault notification sent, preview: ${nodemailer.getTestMessageUrl(info)}`);

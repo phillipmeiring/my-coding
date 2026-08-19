@@ -24,7 +24,7 @@ function listFaultsForTenant(tenantId) {
   return listFaults().filter((f) => f.tenantId === Number(tenantId));
 }
 
-function createFault({ tenantId, tenantName, unit, title, description }) {
+function createFault({ tenantId, tenantName, unit, title, description, photos }) {
   if (!tenantId || !tenantName || !unit || !title) {
     throw new Error('tenantId, tenantName, unit, and title are required');
   }
@@ -36,12 +36,17 @@ function createFault({ tenantId, tenantName, unit, title, description }) {
     unit,
     title,
     description: description || '',
+    photos: photos || [],
     status: 'new',
     createdAt: new Date().toISOString(),
   };
   faults.push(fault);
   writeAll(faults);
   return fault;
+}
+
+function findById(id) {
+  return readAll().find((f) => f.id === Number(id)) || null;
 }
 
 function updateStatus(id, status) {
@@ -64,6 +69,7 @@ module.exports = {
   listFaults,
   listFaultsForTenant,
   createFault,
+  findById,
   updateStatus,
   getUnreadCount,
   VALID_STATUSES,
